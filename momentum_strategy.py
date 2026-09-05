@@ -1,9 +1,9 @@
 """
 Momentum crossover signal generator, filtered by momentum quality.
 
-BUY signal: bullish 5/20-day MA crossover AND HIGH quality recent momentum
+BUY signal: bullish 20/50-day MA crossover AND HIGH quality recent momentum
 (smooth, not driven by a few big jumps).
-SELL signal: bearish 5/20-day MA crossover (quality is not checked on exits
+SELL signal: bearish 20/50-day MA crossover (quality is not checked on exits
 -- you always want a clean way out when the trend turns).
 
 This module only *generates* signals as a list -- it does not place trades.
@@ -15,12 +15,26 @@ import pandas as pd
 
 from momentum_quality import classify_momentum_quality
 
-SHORT_WINDOW = 5
-LONG_WINDOW = 20
+# 20/50-day is a more standard trend-following pairing than 5/20. The
+# original 5/20 combo reacted to nearly every short-term wiggle, generating
+# very frequent trades (whipsaws) that underperformed buy & hold even after
+# fixing position sizing. Widening the windows makes the signal react to the
+# underlying trend rather than daily noise, at the cost of being slower to
+# both enter and exit.
+SHORT_WINDOW = 20
+LONG_WINDOW = 50
 
-# which momentum_quality lookback to use as the entry filter
-QUALITY_WINDOW_LABEL = "1m"
-QUALITY_WINDOW_DAYS = 21
+# which momentum_quality lookback to use as the entry filter -- widened from
+# "1m" to "3m" to match the longer trend horizon above
+QUALITY_WINDOW_LABEL = "3m"
+QUALITY_WINDOW_DAYS = 63
+
+# Quality filter strictness. Higher QUALITY_SCORE_THRESHOLD and
+# MIN_PCT_POSITIVE_DAYS = fewer, "smoother" entries allowed through; lower
+# values let in more entries, including volatile-but-still-uptrending names
+# (relevant for names like NVDA that trend up but with sharp swings).
+QUALITY_SCORE_THRESHOLD = 0.5
+MIN_PCT_POSITIVE_DAYS = 0.50
 
 
 def momentum_signals(prices: pd.DataFrame, timestamp) -> list:
@@ -67,7 +81,11 @@ def momentum_signals(prices: pd.DataFrame, timestamp) -> list:
                 continue
 
             quality_result = classify_momentum_quality(
-                history, ticker, windows={QUALITY_WINDOW_LABEL: QUALITY_WINDOW_DAYS}
+                history,
+                ticker,
+                windows={QUALITY_WINDOW_LABEL: QUALITY_WINDOW_DAYS},
+                quality_score_threshold=QUALITY_SCORE_THRESHOLD,
+                min_pct_positive_days=MIN_PCT_POSITIVE_DAYS,
             )
             quality = quality_result.loc[QUALITY_WINDOW_LABEL, "quality"]
 

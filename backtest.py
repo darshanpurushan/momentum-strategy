@@ -1,10 +1,10 @@
 """
 Lightweight backtest for the `momentum_signals` generator.
 
-Simulates a simple long-only, fixed-share-size model over historical prices,
-then reports performance metrics and compares against an equal-weight
-buy & hold benchmark on the same tickers/period. This is for quick
-sanity-checking on real data -- not a production execution engine (no
+Simulates a long-only, equal-weight-capital-allocation model over historical
+prices, then reports performance metrics and compares against an
+equal-weight buy & hold benchmark on the same tickers/period. This is for
+quick sanity-checking on real data -- not a production execution engine (no
 slippage, no commissions, no partial fills).
 """
 
@@ -14,9 +14,13 @@ import pandas as pd
 from momentum_strategy import momentum_signals
 
 INITIAL_CASH = 100_000
-POSITION_SIZE = 100  # shares per trade
 
-
+# Fraction of CURRENT portfolio value to deploy into a new position when a
+# BUY signal fires. 1 / len(tickers) means "one equal-weight slot per
+# ticker" -- e.g. with 6 tickers, each new position targets ~1/6 of the
+# portfolio. This replaces flat-share-count sizing, which left large amounts
+# of cash sitting idle (earning 0%) while the benchmark was fully invested
+# from day one -- a major, easy-to-miss source of underperformance.
 def run_backtest(prices: pd.DataFrame, start_index: int = 21) -> dict:
     """
     Parameters
@@ -42,31 +46,44 @@ def run_backtest(prices: pd.DataFrame, start_index: int = 21) -> dict:
     equity = []
 
     dates = prices.index[start_index:]
+    target_allocation_pct = 1.0 / len(prices.columns)
 
     for ts in dates:
         todays_prices = prices.loc[ts]
         signals = momentum_signals(prices, ts)
 
+        # current mark-to-market portfolio value, used to size new entries
+        holdings_value = sum(
+            holdings.get(t, 0) * todays_prices.get(t, 0) for t in holdings
+        )
+        portfolio_value = cash + holdings_value
+
         for sig in signals:
             ticker = sig["ticker"]
             price = todays_prices.get(ticker, np.nan)
-            if pd.isna(price):
+            if pd.isna(price) or price <= 0:
                 continue
 
             if sig["signal"] == "BUY" and ticker not in holdings:
-                cost = price * POSITION_SIZE
-                if cost <= cash:
+                target_dollars = target_allocation_pct * portfolio_value
+                spend = min(target_dollars, cash)
+                shares = int(spend // price)
+
+                if shares > 0:
+                    cost = shares * price
                     cash -= cost
-                    holdings[ticker] = POSITION_SIZE
+                    holdings[ticker] = shares
                     trades.append(
-                        {"timestamp": ts, "ticker": ticker, "side": "BUY", "price": price}
+                        {"timestamp": ts, "ticker": ticker, "side": "BUY",
+                         "price": price, "shares": shares}
                     )
 
             elif sig["signal"] == "SELL" and ticker in holdings:
                 shares = holdings.pop(ticker)
                 cash += price * shares
                 trades.append(
-                    {"timestamp": ts, "ticker": ticker, "side": "SELL", "price": price}
+                    {"timestamp": ts, "ticker": ticker, "side": "SELL",
+                     "price": price, "shares": shares}
                 )
 
         holdings_value = sum(
@@ -129,3 +146,4 @@ if __name__ == "__main__":
     print("Strategy metrics:  ", result["metrics"]["strategy"])
     print("Benchmark metrics: ", result["metrics"]["benchmark"])
     print(f"Total trades: {len(result['trades'])}")
+
