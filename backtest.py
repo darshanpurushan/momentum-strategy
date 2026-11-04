@@ -114,7 +114,9 @@ def run_backtest(prices: pd.DataFrame, start_index: int = 21) -> dict:
 def _performance_metrics(equity_curve: pd.Series) -> dict:
     returns = equity_curve.pct_change().dropna()
     total_return = equity_curve.iloc[-1] / equity_curve.iloc[0] - 1
-    n_years = len(equity_curve) / 252
+    # N closing values span N - 1 daily return intervals. A single value
+    # has no elapsed time and therefore no defined annualized growth.
+    n_years = (len(equity_curve) - 1) / 252
     cagr = (
         (equity_curve.iloc[-1] / equity_curve.iloc[0]) ** (1 / n_years) - 1
         if n_years > 0
