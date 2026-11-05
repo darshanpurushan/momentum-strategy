@@ -90,6 +90,8 @@ def classify_momentum_quality(
 
     result = pd.DataFrame(rows).T
     ordered_labels = [l for l in DEFAULT_WINDOWS if l in result.index]
+    # Preserve every custom horizon after the canonical standard windows.
+    ordered_labels.extend(label for label in windows if label not in DEFAULT_WINDOWS)
     result = result.loc[ordered_labels] if ordered_labels else result
     return result
 
