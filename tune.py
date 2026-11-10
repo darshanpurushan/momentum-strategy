@@ -15,6 +15,7 @@ dataset, not a universal truth about momentum strategies. Before trusting a
 """
 
 import itertools
+import math
 
 import momentum_strategy
 from backtest import run_backtest
@@ -31,6 +32,14 @@ QUALITY_SCORE_THRESHOLDS = [0.0, 0.5, 1.0, 1.5]
 MIN_PCT_POSITIVE_DAYS_OPTIONS = [0.40, 0.50]
 
 
+def display_sharpe(value):
+    return f"{value:.4f}" if value is not None and math.isfinite(value) else "n/a"
+
+
+def evaluation_start_index(quality_window_days=63):
+    return max(max(long for _, long in SHORT_LONG_COMBOS), quality_window_days) + 1
+
+
 def sweep(prices, quality_window_label="3m", quality_window_days=63):
     """
     Runs the backtest across the full parameter grid, temporarily overriding
@@ -41,6 +50,9 @@ def sweep(prices, quality_window_label="3m", quality_window_days=63):
     list[dict], sorted by strategy Sharpe descending. Each entry has the
     parameter combo plus its resulting metrics.
     """
+    start_index = evaluation_start_index(quality_window_days)
+    if len(prices) <= start_index:
+        raise ValueError("Not enough prices for a common evaluation window")
     results = []
 
     # save originals so we can restore them after the sweep
@@ -65,7 +77,7 @@ def sweep(prices, quality_window_label="3m", quality_window_days=63):
             momentum_strategy.QUALITY_SCORE_THRESHOLD = q_thresh
             momentum_strategy.MIN_PCT_POSITIVE_DAYS = min_pos
 
-            result = run_backtest(prices, start_index=long_w + 1)
+            result = run_backtest(prices, start_index=start_index)
             m = result["metrics"]["strategy"]
 
             results.append(
@@ -86,7 +98,11 @@ def sweep(prices, quality_window_label="3m", quality_window_days=63):
         for k, v in orig.items():
             setattr(momentum_strategy, k, v)
 
-    results.sort(key=lambda r: (r["sharpe"] is not None, r["sharpe"]), reverse=True)
+    def rank(row):
+        score = row["sharpe"]
+        valid = score is not None and math.isfinite(score)
+        return valid, score if valid else float("-inf")
+    results.sort(key=rank, reverse=True)
     return results
 
 
@@ -96,7 +112,7 @@ if __name__ == "__main__":
 
     results = sweep(prices)
 
-    benchmark = run_backtest(prices)["metrics"]["benchmark"]
+    benchmark = run_backtest(prices, start_index=evaluation_start_index())["metrics"]["benchmark"]
     print(f"Benchmark: sharpe={benchmark['sharpe']}  total_return={benchmark['total_return']}\n")
 
     print(f"{'short':>6} {'long':>6} {'q_thresh':>9} {'min_pos':>8} "
@@ -105,5 +121,5 @@ if __name__ == "__main__":
         print(
             f"{r['short_window']:>6} {r['long_window']:>6} "
             f"{r['quality_score_threshold']:>9} {r['min_pct_positive_days']:>8} "
-            f"{r['sharpe']:>8} {r['total_return']:>8} {r['max_drawdown']:>9} {r['trades']:>7}"
+            f"{display_sharpe(r['sharpe']):>8} {r['total_return']:>8} {r['max_drawdown']:>9} {r['trades']:>7}"
         )

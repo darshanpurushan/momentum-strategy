@@ -40,6 +40,8 @@ def load_prices(tickers, start=None, end=None, period=None, interval="1d") -> pd
 
     if len(tickers) == 1:
         raw = yf.download(tickers[0], **kwargs)
+        if raw.empty:
+            return pd.DataFrame(index=raw.index[:0], columns=tickers, dtype=float)
         if isinstance(raw.columns, pd.MultiIndex):
             # Recent download layouts retain a ticker level even for one
             # symbol. Remove the price-field level before strategy use.
@@ -49,10 +51,14 @@ def load_prices(tickers, start=None, end=None, period=None, interval="1d") -> pd
             prices = raw[["Close"]].rename(columns={"Close": tickers[0]})
     else:
         raw = yf.download(tickers, group_by="ticker", **kwargs)
+        if raw.empty:
+            return pd.DataFrame(index=raw.index[:0], columns=tickers, dtype=float)
         available = [t for t in tickers if t in raw.columns.get_level_values(0)]
         missing = sorted(set(tickers) - set(available))
         if missing:
             print(f"Warning: no data returned for {missing}")
+        if not available:
+            return pd.DataFrame(index=raw.index[:0], columns=tickers, dtype=float)
         prices = pd.concat({t: raw[t]["Close"] for t in available}, axis=1)
 
     prices = prices.dropna(how="all")

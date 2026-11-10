@@ -43,12 +43,12 @@ def classify_momentum_quality(
     if ticker not in prices.columns:
         raise ValueError(f"'{ticker}' not found in prices columns")
 
-    series = prices[ticker].dropna()
-    daily_returns = series.pct_change()
+    series = prices[ticker]
+    daily_returns = series.pct_change(fill_method=None)
 
     rows = {}
     for label, window in windows.items():
-        if len(series) < window + 1:
+        if len(series) < window + 1 or series.iloc[-(window + 1):].isna().any():
             rows[label] = {
                 "window_days": window,
                 "momentum_return": np.nan,
@@ -90,7 +90,6 @@ def classify_momentum_quality(
 
     result = pd.DataFrame(rows).T
     ordered_labels = [l for l in DEFAULT_WINDOWS if l in result.index]
-    # Preserve every custom horizon after the canonical standard windows.
     ordered_labels.extend(label for label in windows if label not in DEFAULT_WINDOWS)
     result = result.loc[ordered_labels] if ordered_labels else result
     return result
@@ -114,12 +113,12 @@ def rolling_momentum_quality(
         raise ValueError(f"'{ticker}' not found in prices columns")
 
     series = prices[ticker]
-    daily_returns = series.pct_change()
+    daily_returns = series.pct_change(fill_method=None)
     is_positive_day = (daily_returns > 0).astype(float)
 
     results = {}
     for label, window in windows.items():
-        momentum_return = series.pct_change(window)
+        momentum_return = series.pct_change(window, fill_method=None)
 
         roll_mean = daily_returns.rolling(window).mean()
         roll_std = daily_returns.rolling(window).std()
