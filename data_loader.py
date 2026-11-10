@@ -40,7 +40,13 @@ def load_prices(tickers, start=None, end=None, period=None, interval="1d") -> pd
 
     if len(tickers) == 1:
         raw = yf.download(tickers[0], **kwargs)
-        prices = raw[["Close"]].rename(columns={"Close": tickers[0]})
+        if isinstance(raw.columns, pd.MultiIndex):
+            # Recent download layouts retain a ticker level even for one
+            # symbol. Remove the price-field level before strategy use.
+            prices = raw["Close"].reindex(columns=tickers)
+            prices.columns.name = None
+        else:
+            prices = raw[["Close"]].rename(columns={"Close": tickers[0]})
     else:
         raw = yf.download(tickers, group_by="ticker", **kwargs)
         available = [t for t in tickers if t in raw.columns.get_level_values(0)]
