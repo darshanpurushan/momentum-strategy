@@ -57,7 +57,9 @@ def validate():
             }
         )
 
-    return pd.DataFrame(rows).set_index("period")
+    columns = ["period", "strategy_return", "strategy_sharpe", "strategy_max_dd",
+               "benchmark_return", "benchmark_sharpe", "benchmark_max_dd", "trades"]
+    return pd.DataFrame(rows, columns=columns).set_index("period")
 
 
 if __name__ == "__main__":
