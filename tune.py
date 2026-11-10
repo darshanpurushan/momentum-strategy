@@ -15,6 +15,7 @@ dataset, not a universal truth about momentum strategies. Before trusting a
 """
 
 import itertools
+import math
 
 import momentum_strategy
 from backtest import run_backtest
@@ -29,6 +30,10 @@ SHORT_LONG_COMBOS = [
 ]
 QUALITY_SCORE_THRESHOLDS = [0.0, 0.5, 1.0, 1.5]
 MIN_PCT_POSITIVE_DAYS_OPTIONS = [0.40, 0.50]
+
+
+def display_sharpe(value):
+    return f"{value:.4f}" if value is not None and math.isfinite(value) else "n/a"
 
 
 def evaluation_start_index(quality_window_days=63):
@@ -93,7 +98,11 @@ def sweep(prices, quality_window_label="3m", quality_window_days=63):
         for k, v in orig.items():
             setattr(momentum_strategy, k, v)
 
-    results.sort(key=lambda r: (r["sharpe"] is not None, r["sharpe"]), reverse=True)
+    def rank(row):
+        score = row["sharpe"]
+        valid = score is not None and math.isfinite(score)
+        return valid, score if valid else float("-inf")
+    results.sort(key=rank, reverse=True)
     return results
 
 
@@ -112,5 +121,5 @@ if __name__ == "__main__":
         print(
             f"{r['short_window']:>6} {r['long_window']:>6} "
             f"{r['quality_score_threshold']:>9} {r['min_pct_positive_days']:>8} "
-            f"{r['sharpe']:>8} {r['total_return']:>8} {r['max_drawdown']:>9} {r['trades']:>7}"
+            f"{display_sharpe(r['sharpe']):>8} {r['total_return']:>8} {r['max_drawdown']:>9} {r['trades']:>7}"
         )
