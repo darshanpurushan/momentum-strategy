@@ -123,7 +123,9 @@ def rolling_momentum_quality(
 
         roll_mean = daily_returns.rolling(window).mean()
         roll_std = daily_returns.rolling(window).std()
-        ann_quality_score = (roll_mean / roll_std) * np.sqrt(252)
+        # Match the snapshot classifier: zero variance has no defined
+        # Sharpe-like quality score, rather than an infinite score.
+        ann_quality_score = (roll_mean / roll_std.where(roll_std > 0)) * np.sqrt(252)
 
         pct_positive_days = is_positive_day.rolling(window).mean()
 
