@@ -90,6 +90,7 @@ def classify_momentum_quality(
 
     result = pd.DataFrame(rows).T
     ordered_labels = [l for l in DEFAULT_WINDOWS if l in result.index]
+    ordered_labels.extend(label for label in windows if label not in DEFAULT_WINDOWS)
     result = result.loc[ordered_labels] if ordered_labels else result
     return result
 
@@ -121,7 +122,9 @@ def rolling_momentum_quality(
 
         roll_mean = daily_returns.rolling(window).mean()
         roll_std = daily_returns.rolling(window).std()
-        ann_quality_score = (roll_mean / roll_std) * np.sqrt(252)
+        # Match the snapshot classifier: zero variance has no defined
+        # Sharpe-like quality score, rather than an infinite score.
+        ann_quality_score = (roll_mean / roll_std.where(roll_std > 0)) * np.sqrt(252)
 
         pct_positive_days = is_positive_day.rolling(window).mean()
 
