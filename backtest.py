@@ -40,6 +40,8 @@ def run_backtest(prices: pd.DataFrame, start_index: int = 21) -> dict:
         trades : list[dict] of executed trades
         metrics : dict with 'strategy' and 'benchmark' performance stats
     """
+    if not prices.index.is_unique or not prices.index.is_monotonic_increasing:
+        raise ValueError("Price index must be unique and increasing")
     cash = INITIAL_CASH
     holdings = {}  # ticker -> shares held
     trades = []

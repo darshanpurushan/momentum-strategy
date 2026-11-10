@@ -58,6 +58,10 @@ def momentum_signals(prices: pd.DataFrame, timestamp) -> list:
     """
     signals = []
 
+    if not prices.index.is_unique or not prices.index.is_monotonic_increasing:
+        raise ValueError("Price index must be unique and increasing")
+    if timestamp not in prices.index:
+        raise ValueError("timestamp must identify an observed price bar")
     history = prices.loc[:timestamp]
     if len(history) < LONG_WINDOW + 1:
         return signals
