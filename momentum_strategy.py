@@ -63,6 +63,9 @@ def momentum_signals(prices: pd.DataFrame, timestamp) -> list:
         return signals
 
     for ticker in prices.columns:
+        # Do not timestamp an old observation as a signal on a missing bar.
+        if pd.isna(history[ticker].iloc[-1]):
+            continue
         series = history[ticker].dropna()
         if len(series) < LONG_WINDOW + 1:
             continue
