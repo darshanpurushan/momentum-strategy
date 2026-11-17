@@ -69,7 +69,9 @@ def momentum_signals(prices: pd.DataFrame, timestamp) -> list:
     for ticker in prices.columns:
         if pd.isna(history[ticker].iloc[-1]):
             continue
-        series = history[ticker].dropna()
+        # Preserve observation slots: removing gaps changes the MA horizon
+        # and can manufacture an exit from an incomplete recent window.
+        series = history[ticker]
         if len(series) < LONG_WINDOW + 1:
             continue
 

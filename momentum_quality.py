@@ -26,6 +26,16 @@ DEFAULT_WINDOWS = {
 }
 
 
+def _validate_price_domain(series):
+    observed = series.dropna()
+    try:
+        valid = np.isfinite(observed.to_numpy()).all() and (observed > 0).all()
+    except (TypeError, ValueError):
+        valid = False
+    if not valid:
+        raise ValueError("Momentum quality requires finite positive observed prices")
+
+
 def classify_momentum_quality(
     prices: pd.DataFrame,
     ticker: str,
@@ -44,6 +54,7 @@ def classify_momentum_quality(
         raise ValueError(f"'{ticker}' not found in prices columns")
 
     series = prices[ticker]
+    _validate_price_domain(series)
     daily_returns = series.pct_change(fill_method=None)
 
     rows = {}
@@ -113,6 +124,7 @@ def rolling_momentum_quality(
         raise ValueError(f"'{ticker}' not found in prices columns")
 
     series = prices[ticker]
+    _validate_price_domain(series)
     daily_returns = series.pct_change(fill_method=None)
     is_positive_day = (daily_returns > 0).astype(float)
 

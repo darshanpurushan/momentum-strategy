@@ -75,7 +75,9 @@ def run_backtest(prices: pd.DataFrame, start_index: int = 21) -> dict:
         )
         portfolio_value = cash + holdings_value
 
-        for sig in signals:
+        # Release cash from exits before sizing entries on this bar. The
+        # signal generator's ticker order must not prevent funded buys.
+        for sig in sorted(signals, key=lambda sig: sig["signal"] != "SELL"):
             ticker = sig["ticker"]
             price = todays_prices.get(ticker, np.nan)
             if pd.isna(price) or price <= 0:
