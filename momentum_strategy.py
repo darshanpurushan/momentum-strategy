@@ -58,6 +58,8 @@ def momentum_signals(prices: pd.DataFrame, timestamp) -> list:
     """
     signals = []
 
+    if not prices.columns.is_unique:
+        raise ValueError("Ticker columns must be unique")
     if not prices.index.is_unique or not prices.index.is_monotonic_increasing:
         raise ValueError("Price index must be unique and increasing")
     if timestamp not in prices.index:

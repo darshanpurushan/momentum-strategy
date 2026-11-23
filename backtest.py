@@ -44,6 +44,8 @@ def run_backtest(prices: pd.DataFrame, start_index: int = 21) -> dict:
     """
     if prices.empty:
         raise ValueError("Price history must contain rows and tickers")
+    if not prices.columns.is_unique:
+        raise ValueError("Ticker columns must be unique")
     if (isinstance(start_index, bool)
             or not isinstance(start_index, (int, np.integer))
             or not 0 <= start_index < len(prices)):
